@@ -7,28 +7,24 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { nicho, loc, cidade, estado, pais, stars, revs, filtroSite, msg } = req.body;
+  const { nicho, loc, stars, revs, filtroSite } = req.body;
   if (!nicho || !loc) return res.status(400).json({ error: 'Parâmetros inválidos' });
 
   const filtroLabel =
     filtroSite === 'sem' ? 'APENAS negócios SEM site próprio' :
     filtroSite === 'com' ? 'APENAS negócios COM site' : 'todos';
 
-  const prompt = `Você é um especialista em prospecção B2B. Busque negócios reais do nicho "${nicho}" em ${loc}.
+  const prompt = `Use web_search para buscar negócios do tipo "${nicho}" em ${loc}.
 
-Filtros obrigatórios:
-- Avaliação mínima: ${stars} estrelas
-- Mínimo de reviews: ${revs}
-- Mostrar: ${filtroLabel}
+Para cada negócio encontrado:
+- Verifique avaliação (mínimo ${stars} estrelas) e reviews (mínimo ${revs})
+- Verifique se tem site próprio (Facebook/Instagram/TikTok NÃO contam)
+- Filtre: ${filtroLabel}
 
-Use web_search para buscar "${nicho} ${loc}" e encontrar negócios reais com endereço, telefone e avaliações do Google Maps.
-Para cada negócio encontrado, verifique se possui site próprio (Facebook, Instagram, TikTok e Google Perfil NÃO contam como site).
+Sua resposta deve ser SOMENTE o JSON abaixo, nada mais:
+{"leads":[{"nome":"string","endereco":"string","telefone":"string","avaliacao":0.0,"reviews":0,"tem_site":false}]}
 
-IMPORTANTE: Retorne APENAS o JSON abaixo, sem nenhum texto antes ou depois, sem markdown, sem explicações, sem backticks:
-
-{"leads":[{"nome":"Nome do negócio","endereco":"Endereço completo","telefone":"+55 54 99999-9999","avaliacao":4.5,"reviews":123,"tem_site":false}]}
-
-Busque o MÁXIMO de negócios possível — mínimo 10 se existirem.`;
+Traga mínimo 10 negócios. APENAS JSON, zero texto fora do JSON.`;
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -41,6 +37,7 @@ Busque o MÁXIMO de negócios possível — mínimo 10 se existirem.`;
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 8000,
+        system: 'Você é uma API que retorna APENAS JSON válido, sem nenhum texto adicional, sem markdown, sem explicações. Sua resposta deve começar com { e terminar com }.',
         tools: [{ type: 'web_search_20250305', name: 'web_search' }],
         messages: [{ role: 'user', content: prompt }],
       }),
@@ -57,8 +54,7 @@ Busque o MÁXIMO de negócios possível — mínimo 10 se existirem.`;
     for (const block of data.content || []) {
       if (block.type === 'text') rawText += block.text;
     }
-    rawText = rawText.trim();
-    rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+    rawText = rawText.trim().replace(/```json/gi, '').replace(/```/g, '').trim();
 
     const jsonStart = rawText.indexOf('{');
     const jsonEnd = rawText.lastIndexOf('}');
@@ -73,7 +69,7 @@ Busque o MÁXIMO de negócios possível — mínimo 10 se existirem.`;
     let parsed;
     try {
       parsed = JSON.parse(rawText.slice(jsonStart, jsonEnd + 1));
-    } catch (parseErr) {
+    } catch {
       return res.status(500).json({
         error: 'Erro ao processar resposta. Tente novamente.',
         debug: rawText.slice(jsonStart, jsonStart + 300)
@@ -81,12 +77,8 @@ Busque o MÁXIMO de negócios possível — mínimo 10 se existirem.`;
     }
 
     const leads = parsed.leads || [];
-
     if (!leads.length) {
-      return res.status(200).json({
-        leads: [],
-        message: 'Nenhum lead encontrado para esse nicho e localização.'
-      });
+      return res.status(200).json({ leads: [], message: 'Nenhum lead encontrado.' });
     }
 
     return res.status(200).json({ leads });
