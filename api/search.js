@@ -16,27 +16,19 @@ export default async function handler(req, res) {
 
   const prompt = `Você é um especialista em prospecção B2B. Busque negócios reais do nicho "${nicho}" em ${loc}.
 
-Filtros obrigatórios: avaliação mínima ${stars} estrelas, mínimo ${revs} reviews. Mostrar: ${filtroLabel}.
+Filtros obrigatórios:
+- Avaliação mínima: ${stars} estrelas
+- Mínimo de reviews: ${revs}
+- Mostrar: ${filtroLabel}
 
 Use web_search para buscar "${nicho} ${loc}" e encontrar negócios reais com endereço, telefone e avaliações do Google Maps.
-
 Para cada negócio encontrado, verifique se possui site próprio (Facebook, Instagram, TikTok e Google Perfil NÃO contam como site).
 
-Retorne APENAS um JSON válido, sem texto adicional, sem markdown, sem backticks:
-{
-  "leads": [
-    {
-      "nome": "Nome do negócio",
-      "endereco": "Endereço completo com bairro e cidade",
-      "telefone": "+55 54 99999-9999",
-      "avaliacao": 4.5,
-      "reviews": 123,
-      "tem_site": false
-    }
-  ]
-}
+IMPORTANTE: Retorne APENAS o JSON abaixo, sem nenhum texto antes ou depois, sem markdown, sem explicações, sem backticks:
 
-Busque o MÁXIMO de negócios possível — mínimo 15 se existirem. APENAS o JSON, nada mais.`;
+{"leads":[{"nome":"Nome do negócio","endereco":"Endereço completo","telefone":"+55 54 99999-9999","avaliacao":4.5,"reviews":123,"tem_site":false}]}
+
+Busque o MÁXIMO de negócios possível — mínimo 10 se existirem.`;
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -60,31 +52,45 @@ Busque o MÁXIMO de negócios possível — mínimo 15 se existirem. APENAS o JS
     }
 
     const data = await response.json();
+
     let rawText = '';
     for (const block of data.content || []) {
       if (block.type === 'text') rawText += block.text;
     }
-
     rawText = rawText.trim();
+    rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+
     const jsonStart = rawText.indexOf('{');
     const jsonEnd = rawText.lastIndexOf('}');
+
     if (jsonStart === -1 || jsonEnd === -1) {
-      return res.status(500).json({ error: 'Resposta inválida da IA. Tente novamente.' });
+      return res.status(500).json({
+        error: 'A IA não retornou dados no formato esperado. Tente novamente.',
+        debug: rawText.slice(0, 300)
+      });
     }
 
     let parsed;
     try {
       parsed = JSON.parse(rawText.slice(jsonStart, jsonEnd + 1));
-    } catch {
-      return res.status(500).json({ error: 'Erro ao processar resposta. Tente novamente.' });
+    } catch (parseErr) {
+      return res.status(500).json({
+        error: 'Erro ao processar resposta. Tente novamente.',
+        debug: rawText.slice(jsonStart, jsonStart + 300)
+      });
     }
 
     const leads = parsed.leads || [];
+
     if (!leads.length) {
-      return res.status(200).json({ leads: [], message: 'Nenhum lead encontrado para esse nicho e localização.' });
+      return res.status(200).json({
+        leads: [],
+        message: 'Nenhum lead encontrado para esse nicho e localização.'
+      });
     }
 
     return res.status(200).json({ leads });
+
   } catch (err) {
     return res.status(500).json({ error: 'Erro de conexão: ' + err.message });
   }
