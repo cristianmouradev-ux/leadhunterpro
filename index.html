@@ -29,11 +29,12 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;bac
 ::-webkit-scrollbar-thumb{background:var(--faint);border-radius:2px}
 
 /* ── SCREENS ── */
-.screen{display:none;min-height:100vh;position:relative;z-index:1}
-.screen.active{display:block}
+.screen{display:none!important;min-height:100vh;position:relative;z-index:1}
+.screen.active{display:flex!important}
+.screen.active.block{display:block!important}
 
 /* ── LOGIN ── */
-#screen-login{display:flex;align-items:center;justify-content:center;padding:24px}
+#screen-login{align-items:center;justify-content:center;padding:24px}
 .login-box{width:100%;max-width:400px;background:var(--s1);border:1px solid var(--border2);border-radius:20px;padding:36px 32px;display:flex;flex-direction:column;gap:24px}
 .login-brand{display:flex;align-items:center;gap:12px;justify-content:center;margin-bottom:4px}
 .login-icon{width:44px;height:44px;background:linear-gradient(135deg,var(--accent),#6a5af5);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 0 24px var(--aglow)}
@@ -62,7 +63,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;bac
 
 /* DESKTOP */
 @media(min-width:769px){
-  #screen-app.active{display:grid;grid-template-columns:280px 1fr;grid-template-rows:100vh;overflow:hidden}
+  #screen-app.active{display:grid!important;grid-template-columns:280px 1fr;grid-template-rows:100vh;overflow:hidden}
   .app-sidebar{display:flex!important;height:100vh;overflow-y:auto;grid-row:1;grid-column:1}
   .app-main{display:flex!important;flex-direction:column;overflow:hidden;grid-row:1;grid-column:2}
   .mob-only{display:none!important}
@@ -71,7 +72,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;bac
 }
 /* MOBILE */
 @media(max-width:768px){
-  #screen-app.active{display:flex;flex-direction:column;min-height:100vh}
+  #screen-app.active{display:flex!important;flex-direction:column;min-height:100vh}
   .app-sidebar{display:none!important}
   .app-main{display:flex!important;flex-direction:column;flex:1;overflow:hidden}
   .desk-only{display:none!important}
